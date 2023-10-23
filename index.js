@@ -31,6 +31,11 @@ const loader = new DirectoryLoader("./documents", {
     ".txt": (path) => new TextLoader(path),
 })
 
+console.log("Loading documents...")
+// Load the documents
+const documents = await loader.load()
+console.log("Loaded documents")
+
 
 const template = "Tell me how to wire {micro_controller} to {embedded_module}"
 
