@@ -72,6 +72,12 @@ export const main_function = async () => {
         const textSplitter = new RecursiveCharacterTextSplitter({chunkSize: 1000, chunkOverlap: 100})
         const normalized_docs = new normalizeDocuments(documents)
         const splitted_docs = await textSplitter.createDocuments(normalized_docs)
+
+        // Create a new vector store
+        vectorStore = await HNSWLib.fromDocuments(splitted_docs, new OpenAIEmbeddings())
+
+        await vectorStore.save(VECTOR_STORE_PATH)
+        console.log("New vector store created and saved")
     }
     
 }
