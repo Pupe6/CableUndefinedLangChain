@@ -26,6 +26,11 @@ import { OpenAIEmbeddings } from "langchain/embeddings/openai"
 
 const VECTOR_STORE_PATH = "Components_info.index"
 
+// This variables should be taken from the api
+const micro_controller = "ARDUINO"
+const embedded_module = "PN532 NFC Module"
+const question = `Tell me how to wire ${micro_controller} to ${embedded_module}`
+
 // Initialize document loaders
 const loader = new DirectoryLoader("./documents", {
     ".csv": (path) => new CSVLoader(path),
@@ -70,7 +75,7 @@ export const main_function = async () => {
 
         // For splitting the text into chunks
         const textSplitter = new RecursiveCharacterTextSplitter({chunkSize: 1000, chunkOverlap: 100})
-        const normalized_docs = new normalizeDocuments(documents)
+        const normalized_docs = normalizeDocuments(documents)
         const splitted_docs = await textSplitter.createDocuments(normalized_docs)
 
         // Create a new vector store
@@ -79,5 +84,16 @@ export const main_function = async () => {
         await vectorStore.save(VECTOR_STORE_PATH)
         console.log("New vector store created and saved")
     }
-    
+
+    // Initialize the chain
+    console.log("Initializing the chain...")
+    const chain = RetrievalQAChain.fromLLM(model, vectorStore.asRetriever())
+
+    // Ask the question
+    console.log({question})
+    const result = await chain.call({query: question});
+    console.log({result})
 }
+
+// Run the main function
+main_function()
