@@ -3,9 +3,6 @@ import { config } from 'dotenv'
 import fs from 'fs'
 config()
 
-// Prompt Template for custom prompt questions
-import { PromptTemplate } from 'langchain/prompts'
-
 // Document Loaders
 import { DirectoryLoader } from "langchain/document_loaders/fs/directory"
 import { CSVLoader } from "langchain/document_loaders/fs/csv"
@@ -15,8 +12,14 @@ import { TextLoader } from 'langchain/document_loaders/fs/text'
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter'
 
 // LLM Chains and Model
-import { OpenAI } from "langchain/llms/openai"
-import { RetrievalQAChain } from "langchain/chains"
+import { ChatOpenAI } from "langchain/chat_models/openai"
+import { ConversationChain } from "langchain/chains"
+
+// Prompt Templates and Buffer Memory
+import {ChatPromptTemplate, HumanMessagePromptTemplate, SystemMessagePromptTemplate, MessagesPlaceholder,
+} from "langchain/prompts";
+
+import { BufferMemory } from "langchain/memory";
 
 // Vector database
 import { HNSWLib } from "langchain/vectorstores/hnswlib"
@@ -30,6 +33,9 @@ const VECTOR_STORE_PATH = "Components_info.index"
 const micro_controller = "ARDUINO"
 const embedded_module = "PN532 NFC Module"
 const question = `Tell me how to wire ${micro_controller} to ${embedded_module}`
+
+const question2 = "What are the components that we can connect wit ARDUINO"
+
 
 // Initialize document loaders
 const loader = new DirectoryLoader("./documents", {
@@ -55,26 +61,23 @@ function normalizeDocuments(documents){
     })
 }
 
-const template = "Tell me how to wire {micro_controller} to {embedded_module}"
-
-const prompt = new PromptTemplate({template, inputVariables: ['micro_controller', 'embedded_module']})
 
 export const main_function = async () => {
     // Initialize the model
-    const model = new OpenAI({})
+    const chat = new ChatOpenAI({ temperature: 0.1 })
     let vectorStore
 
     // Check if the vector store exists
     if (fs.existsSync(VECTOR_STORE_PATH)){
         console.log("Loading an existing vector store...")
-        vectorStore = await HNSWLib.load(VECTOR_STORE_PATH, new OpenAIEmbeddings)
+        vectorStore = await HNSWLib.load(VECTOR_STORE_PATH, new OpenAIEmbeddings())
         console.log("Loaded an existing vector store")
     }
     else{
         console.log("Creating a new vector store...")
 
         // For splitting the text into chunks
-        const textSplitter = new RecursiveCharacterTextSplitter({chunkSize: 1000, chunkOverlap: 100})
+        const textSplitter = new RecursiveCharacterTextSplitter({chunkSize: 1200, chunkOverlap: 200})
         const normalized_docs = normalizeDocuments(documents)
         const splitted_docs = await textSplitter.createDocuments(normalized_docs)
 
@@ -85,14 +88,34 @@ export const main_function = async () => {
         console.log("New vector store created and saved")
     }
 
+    // Promts for the chat
+    const chatPrompt = ChatPromptTemplate.fromMessages([
+    SystemMessagePromptTemplate.fromTemplate(
+        "The following is a friendly conversation between a human and an AI. The AI is talkative and provides lots of specific details how to wire different embedded components from its context. If the AI does not know the answer to a question, it truthfully says it does not know."
+    ),
+    new MessagesPlaceholder("history"),
+    HumanMessagePromptTemplate.fromTemplate("{input}"),
+    ]);
+
+
+
     // Initialize the chain
     console.log("Initializing the chain...")
-    const chain = RetrievalQAChain.fromLLM(model, vectorStore.asRetriever())
+    const chain = new ConversationChain({
+        memory: new BufferMemory({ returnMessages: true, memoryKey: "history" }),
+        prompt: chatPrompt,
+        llm: chat,
+    });
 
     // Ask the question
     console.log({question})
-    const result = await chain.call({query: question});
-    console.log({result})
+    const response = await chain.call({
+        input: {
+            question: question,
+            vectorStore: vectorStore
+        },
+    });
+    console.log({response})
 }
 
 // Run the main function
