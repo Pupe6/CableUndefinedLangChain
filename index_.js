@@ -85,7 +85,7 @@ export const main_function = async () => {
     });
 
     const res = await chain.call({
-    query: "How to wire ARDUINO to PN532 NFC MODULE?",
+    query: "What do you know?",
     });
 
     console.log(res.text)
