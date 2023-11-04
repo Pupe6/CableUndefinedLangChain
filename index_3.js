@@ -16,7 +16,6 @@ import { OpenAI } from "langchain/llms/openai"
 import { VectorDBQAChain } from "langchain/chains"
 
 
-
 // Vector database
 import { HNSWLib } from "langchain/vectorstores/hnswlib"
 // Embeddings for text
@@ -51,7 +50,8 @@ function normalizeDocuments(documents){
 export const main_function = async (micro_controller, embedded_module) => {
     // Initialize the model
 
-    const question = `Tell me how to wire ${micro_controller} to ${embedded_module}`
+    let question = `Tell me how to wire ${micro_controller} to ${embedded_module}`
+    // question = "What are options for Sustainability and Biking?"
     
     const model = new OpenAI({ temperature: 0, modelName: "gpt-3.5-turbo" })
     let vectorStore
