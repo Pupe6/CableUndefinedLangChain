@@ -35,7 +35,7 @@ function convert_xlsx_to_csv(filePath){
 
     let worksheet = workbook.Sheets["Sheet1"]
     let jsonData = utils.sheet_to_json(worksheet, {raw: false, defval: null})
-    let fileName = filePath.substring(0, filePath.indexOf("."))
+    let fileName = filePath.substring(0, filePath.length - 5)
     let new_worksheet = utils.json_to_sheet(jsonData);
     let new_workbook = utils.book_new();
     utils.book_append_sheet(new_workbook, new_worksheet, "csv_sheet")
@@ -49,7 +49,6 @@ function convert_xlsx_to_csv(filePath){
 async function loadDocuments(){
     const loader = new DirectoryLoader("./documents", {
         ".csv": (path) => new CSVLoader(path),
-        ".xlsx": (path) => new CSVLoader(path),
         ".txt": (path) => new TextLoader(path),
     })
     console.log("Loading documents...")
@@ -74,19 +73,17 @@ function normalizeDocuments(documents){
 
 
 export const main_function = async (micro_controller, embedded_module) => {
-    // Initialize the model
-
-    let question = `Tell me how to wire ${micro_controller} to ${embedded_module}`
-    // question = "What are options for Sustainability and Biking?"
     
-    const model = new OpenAI({ temperature: 0, modelName: "gpt-3.5-turbo" })
+    let question = `Tell me how to wire ${micro_controller} to ${embedded_module}`
+    
+    // Initialize the model
+    const model = new OpenAI({ temperature: 0.05, modelName: "gpt-3.5-turbo" })
     let vectorStore
     let splitted_docs
 
     
     // Check if the vector store exists
     if (fs.existsSync(VECTOR_STORE_PATH)){
-        convert_xlsx_to_csv('./documents/components_info.xlsx')
         // For splitting the text into chunks
         const textSplitter = new RecursiveCharacterTextSplitter({chunkSize: 1000, chunkOverlap: 100})
         const documents = await loadDocuments()
@@ -98,9 +95,10 @@ export const main_function = async (micro_controller, embedded_module) => {
     }
     else{
         console.log("Creating a new vector store...")
-
+        convert_xlsx_to_csv('./documents/components_info.xlsx')
         // For splitting the text into chunks
         const textSplitter = new RecursiveCharacterTextSplitter({chunkSize: 1000, chunkOverlap: 100})
+        const documents = await loadDocuments()
         const normalized_docs = normalizeDocuments(documents)
         const splitted_docs = await textSplitter.createDocuments(normalized_docs)
 
@@ -122,4 +120,4 @@ export const main_function = async (micro_controller, embedded_module) => {
 }
 
 // Run the main function
-main_function("Raspberry Pi Pico", "Servo Motor")
+main_function("ESP32", "SEN18 Water Sensor")
