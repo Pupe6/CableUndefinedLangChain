@@ -1,6 +1,9 @@
 // Import dotenv for api_keys and fs for loading files
 import { config } from 'dotenv'
 import fs from 'fs'
+import pkg from 'xlsx';
+const { readFile, utils, writeFile } = pkg;
+
 config()
 
 // Document Loaders
@@ -21,19 +24,42 @@ import { HNSWLib } from "langchain/vectorstores/hnswlib"
 // Embeddings for text
 import { OpenAIEmbeddings } from "langchain/embeddings/openai"
 
+
 const VECTOR_STORE_PATH = "Components_info.index"
 // This variables should be taken from the api
 
+
+function convert_xlsx_to_csv(filePath){
+    const workbook = readFile(filePath)
+
+
+    let worksheet = workbook.Sheets["Sheet1"]
+    let jsonData = utils.sheet_to_json(worksheet, {raw: false, defval: null})
+    let fileName = filePath.substring(0, filePath.indexOf("."))
+    let new_worksheet = utils.json_to_sheet(jsonData);
+    let new_workbook = utils.book_new();
+    utils.book_append_sheet(new_workbook, new_worksheet, "csv_sheet")
+
+    writeFile(new_workbook, fileName + ".csv")
+    console.log("File converted to csv successfully!")
+
+}
+
 // Initialize document loaders
-const loader = new DirectoryLoader("./documents", {
-    ".csv": (path) => new CSVLoader(path),
-    ".xlsx": (path) => new CSVLoader(path),
-    ".txt": (path) => new TextLoader(path),
-})
-console.log("Loading documents...")
-// Load the documents
-const documents = await loader.load()
-console.log("Loaded documents")
+async function loadDocuments(){
+    const loader = new DirectoryLoader("./documents", {
+        ".csv": (path) => new CSVLoader(path),
+        ".xlsx": (path) => new CSVLoader(path),
+        ".txt": (path) => new TextLoader(path),
+    })
+    console.log("Loading documents...")
+    // Load the documents
+    const documents = await loader.load()
+    console.log("Loaded documents")
+    return documents
+}
+
+
 // Normalize the documents for better preprocessing
 function normalizeDocuments(documents){
     return documents.map((document) => {
@@ -57,10 +83,13 @@ export const main_function = async (micro_controller, embedded_module) => {
     let vectorStore
     let splitted_docs
 
+    
     // Check if the vector store exists
     if (fs.existsSync(VECTOR_STORE_PATH)){
+        convert_xlsx_to_csv('./documents/components_info.xlsx')
         // For splitting the text into chunks
         const textSplitter = new RecursiveCharacterTextSplitter({chunkSize: 1000, chunkOverlap: 100})
+        const documents = await loadDocuments()
         const normalized_docs = normalizeDocuments(documents)
         splitted_docs = await textSplitter.createDocuments(normalized_docs)
         console.log("Loading an existing vector store...")
