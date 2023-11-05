@@ -1,24 +1,21 @@
 // Import dotenv for api_keys and fs for loading files
 import { config } from 'dotenv'
 import fs from 'fs'
+import pkg from 'xlsx';
+const { readFile, utils, writeFile } = pkg;
+
 config()
 
 // Document Loaders
 import { DirectoryLoader } from "langchain/document_loaders/fs/directory"
 import { CSVLoader } from "langchain/document_loaders/fs/csv"
-import { TextLoader } from 'langchain/document_loaders/fs/text'
+
 // For splitting the text into chunks 
 import { RecursiveCharacterTextSplitter } from 'langchain/text_splitter'
 
 // LLM Chains and Model
-import { ChatOpenAI } from "langchain/chat_models/openai"
-import { ConversationChain} from "langchain/chains"
-
-// Prompt Templates and Buffer Memory
-import {ChatPromptTemplate, HumanMessagePromptTemplate, SystemMessagePromptTemplate, MessagesPlaceholder,
-} from "langchain/prompts";
-
-import { BufferMemory } from "langchain/memory";
+import { OpenAI } from "langchain/llms/openai"
+import { VectorDBQAChain } from "langchain/chains"
 
 // Vector database
 import { HNSWLib } from "langchain/vectorstores/hnswlib"
@@ -26,24 +23,35 @@ import { HNSWLib } from "langchain/vectorstores/hnswlib"
 import { OpenAIEmbeddings } from "langchain/embeddings/openai"
 
 const VECTOR_STORE_PATH = "Components_info.index"
-// This variables should be taken from the api
-const micro_controller = "ARDUINO"
-const embedded_module = "PN532 NFC Module"
-const question = `Tell me how to wire ${micro_controller} to ${embedded_module}`
 
-const question2 = "What are the components that we can connect wit ARDUINO"
+function convert_xlsx_to_csv(filePath){
+    const workbook = readFile(filePath)
 
+    let worksheet = workbook.Sheets["Sheet1"]
+    let jsonData = utils.sheet_to_json(worksheet, {raw: false, defval: null})
+    let fileName = filePath.substring(0, filePath.length - 5)
+    let new_worksheet = utils.json_to_sheet(jsonData);
+    let new_workbook = utils.book_new();
+    utils.book_append_sheet(new_workbook, new_worksheet, "csv_sheet")
+
+    writeFile(new_workbook, fileName + ".csv")
+    console.log("File converted to csv successfully!")
+}
 
 // Initialize document loaders
-const loader = new DirectoryLoader("./documents", {
-    ".csv": (path) => new CSVLoader(path),
-    ".xlsx": (path) => new CSVLoader(path),
-    ".txt": (path) => new TextLoader(path),
-})
-console.log("Loading documents...")
-// Load the documents
-const documents = await loader.load()
-console.log("Loaded documents")
+async function loadDocuments(){
+    const loader = new DirectoryLoader("./documents", {
+        ".csv": (path) => new CSVLoader(path),
+        ".txt": (path) => new TextLoader(path),
+    })
+    console.log("Loading documents...")
+    // Load the documents
+    const documents = await loader.load()
+    console.log("Loaded documents")
+    return documents
+}
+
+
 // Normalize the documents for better preprocessing
 function normalizeDocuments(documents){
     return documents.map((document) => {
@@ -57,11 +65,16 @@ function normalizeDocuments(documents){
 }
 
 
-export const main_function = async () => {
+export const main_function = async (micro_controller, embedded_module) => {
+    
+    let question = `Tell me how to wire ${micro_controller} to ${embedded_module}`
+    
     // Initialize the model
-    const chat = new ChatOpenAI({ temperature: 0.1, modelName: "gpt-3.5-turbo" })
+    const model = new OpenAI({ temperature: 0.05, modelName: "gpt-3.5-turbo" })
     let vectorStore
+    let splitted_docs
 
+    
     // Check if the vector store exists
     if (fs.existsSync(VECTOR_STORE_PATH)){
         console.log("Loading an existing vector store...")
@@ -70,9 +83,10 @@ export const main_function = async () => {
     }
     else{
         console.log("Creating a new vector store...")
-
+        convert_xlsx_to_csv('./documents/components_info.xlsx')
         // For splitting the text into chunks
-        const textSplitter = new RecursiveCharacterTextSplitter({chunkSize: 1200, chunkOverlap: 200})
+        const textSplitter = new RecursiveCharacterTextSplitter({chunkSize: 1000, chunkOverlap: 100})
+        const documents = await loadDocuments()
         const normalized_docs = normalizeDocuments(documents)
         const splitted_docs = await textSplitter.createDocuments(normalized_docs)
 
@@ -82,33 +96,15 @@ export const main_function = async () => {
         console.log("New vector store created and saved")
     }
 
-    // Promts for the chat
-    const chatPrompt = ChatPromptTemplate.fromMessages([
-    SystemMessagePromptTemplate.fromTemplate(
-        "The following is a friendly conversation between a human and an AI. The AI is talkative and provides lots of specific details how to wire different embedded components from its context. If the AI does not know the answer to a question, it truthfully says it does not know."
-    ),
-    new MessagesPlaceholder("history"),
-    HumanMessagePromptTemplate.fromTemplate("{input}"),
-    ]);
+    const chain = VectorDBQAChain.fromLLM(model, vectorStore)
 
+    const res = await chain.call({
+        input_documents: splitted_docs,
+        query: question
+    })
 
-
-    // Initialize the chain
-    console.log("Initializing the chain...")
-    const chain = new ConversationChain({
-        memory: new BufferMemory({ returnMessages: true, memoryKey: "history" }),
-        prompt: chatPrompt,
-        llm: chat,
-        retriever: vectorStore
-    });
-
-    // Ask the question
-    console.log({question})
-    const response = await chain.call({
-        input: question 
-    });
-    console.log(response)
+    console.log({ res })
 }
 
 // Run the main function
-main_function()
+main_function("ESP32", "SEN18 Water Sensor")
