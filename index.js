@@ -103,19 +103,22 @@ export const main_function = async (micro_controller, embedded_module) => {
         query: question
     })
 
-    console.log({ res })
+    console.log( res.text )
+    
+    sendData(res.text)
 }
 
 
 
-const sendHttpRequest = (method, url, data) => {
+function sendHttpRequest(method, url, data){
   return fetch(url, {
     method: method,
     body: JSON.stringify(data),
     headers: data ? { 'Content-Type': 'application/json' } : {}
   }).then(response => {
+
+    // Error handling
     if (response.status >= 400) {
-      // !response.ok
       return response.json().then(errResData => {
         const error = new Error('Something went wrong!');
         error.data = errResData;
@@ -127,16 +130,17 @@ const sendHttpRequest = (method, url, data) => {
 };
 
 
-const getData = () => {
+function getData(){
+    // Get the data from the API ( microcontroller and embedded components variables )   
   sendHttpRequest('GET', 'https://reqres.in/api/users').then(responseData => {
     console.log(responseData);
   });
 };
 
-const sendData = () => {
+function sendData(result_generated_text){
+    // Send the data to the API ( generated text )
   sendHttpRequest('POST', 'https://reqres.in/api/register', {
-    email: 'eve.holt@reqres.in'
-    // password: 'pistol'
+    generated_text: result_generated_text
   })
     .then(responseData => {
       console.log(responseData);
@@ -151,3 +155,5 @@ const sendData = () => {
 
 // Run the main function
 main_function("ESP32", "SEN18 Water Sensor")
+
+// getData()
