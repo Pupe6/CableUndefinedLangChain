@@ -9,6 +9,7 @@ config();
 // Document Loaders
 import { DirectoryLoader } from "langchain/document_loaders/fs/directory";
 import { CSVLoader } from "langchain/document_loaders/fs/csv";
+import { TextLoader } from "langchain/dist/document_loaders/fs/text";
 
 // For splitting the text into chunks
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
@@ -62,7 +63,7 @@ function normalizeDocuments(documents) {
 	});
 }
 
-export const main_function = async (micro_controller, embedded_module) => {
+export const predict = async (micro_controller, embedded_module) => {
 	let question = `Tell me how to wire ${micro_controller} to ${embedded_module}`;
 
 	// Initialize the model
@@ -108,5 +109,5 @@ export const main_function = async (micro_controller, embedded_module) => {
 		query: question,
 	});
 
-	console.log(res.text);
+	return res.text;
 };
