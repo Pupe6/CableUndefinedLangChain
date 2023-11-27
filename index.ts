@@ -1,6 +1,7 @@
 // Import dotenv for api_keys and fs for loading files
 import { config } from "dotenv";
 import fs from "fs";
+import path from "path";
 
 import pkg from "xlsx";
 const { readFile, utils, writeFile } = pkg;
@@ -31,17 +32,17 @@ function convert_xlsx_to_csv(filePath) {
 	let worksheet = workbook.Sheets["Sheet1"];
 	let jsonData = utils.sheet_to_json(worksheet, { raw: false, defval: null });
 	let fileName = filePath.substring(0, filePath.length - 5);
-	let new_worksheet = utils.json_to_sheet(jsonData);
-	let new_workbook = utils.book_new();
-	utils.book_append_sheet(new_workbook, new_worksheet, "csv_sheet");
+	let newWorksheet = utils.json_to_sheet(jsonData);
+	let newWorkbook = utils.book_new();
+	utils.book_append_sheet(newWorkbook, newWorksheet, "csv_sheet");
 
-	writeFile(new_workbook, fileName + ".csv");
+	writeFile(newWorkbook, fileName + ".csv");
 	console.log("File converted to csv successfully!");
 }
 
 // Initialize document loaders
 async function loadDocuments() {
-	const loader = new DirectoryLoader("./documents", {
+	const loader = new DirectoryLoader(path.join(__dirname, "documents"), {
 		".csv": path => new CSVLoader(path),
 	});
 	console.log("Loading documents...");
@@ -62,13 +63,16 @@ function normalizeDocuments(documents) {
 	});
 }
 
-export const predict = async (micro_controller, embedded_module) => {
-	let question = `Tell me how to wire ${micro_controller} to ${embedded_module}`;
+export const predict = async (
+	microcontroller: string,
+	embeddedModule: string
+) => {
+	let question = `Tell me how to wire ${microcontroller} to ${embeddedModule}`;
 
 	// Initialize the model
 	const model = new OpenAI({ temperature: 0.05, modelName: "gpt-3.5-turbo" });
 	let vectorStore;
-	let splitted_docs;
+	let splitDocs;
 
 	// Check if the vector store exists
 	if (fs.existsSync(VECTOR_STORE_PATH)) {
@@ -80,21 +84,21 @@ export const predict = async (micro_controller, embedded_module) => {
 		console.log("Loaded an existing vector store");
 	} else {
 		console.log("Creating a new vector store...");
-		convert_xlsx_to_csv("./documents/components_info.xlsx");
+		convert_xlsx_to_csv(
+			path.join(__dirname, "documents", "components_info.xlsx")
+		);
 		// For splitting the text into chunks
 		const textSplitter = new RecursiveCharacterTextSplitter({
 			chunkSize: 1000,
 			chunkOverlap: 100,
 		});
 		const documents = await loadDocuments();
-		const normalized_docs = normalizeDocuments(documents);
-		const splitted_docs = await textSplitter.createDocuments(
-			normalized_docs
-		);
+		const normalizedDocs = normalizeDocuments(documents);
+		const splitDocs = await textSplitter.createDocuments(normalizedDocs);
 
 		// Create a new vector store
 		vectorStore = await HNSWLib.fromDocuments(
-			splitted_docs,
+			splitDocs,
 			new OpenAIEmbeddings()
 		);
 		await vectorStore.save(VECTOR_STORE_PATH);
@@ -104,7 +108,7 @@ export const predict = async (micro_controller, embedded_module) => {
 	const chain = VectorDBQAChain.fromLLM(model, vectorStore);
 
 	const res = await chain.call({
-		input_documents: splitted_docs,
+		input_documents: splitDocs,
 		query: question,
 	});
 
