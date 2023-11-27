@@ -1,6 +1,7 @@
 // Import dotenv for api_keys and fs for loading files
 import { config } from "dotenv";
 import fs from "fs";
+
 import pkg from "xlsx";
 const { readFile, utils, writeFile } = pkg;
 
@@ -9,7 +10,6 @@ config();
 // Document Loaders
 import { DirectoryLoader } from "langchain/document_loaders/fs/directory";
 import { CSVLoader } from "langchain/document_loaders/fs/csv";
-import { TextLoader } from "langchain/dist/document_loaders/fs/text";
 
 // For splitting the text into chunks
 import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
@@ -43,7 +43,6 @@ function convert_xlsx_to_csv(filePath) {
 async function loadDocuments() {
 	const loader = new DirectoryLoader("./documents", {
 		".csv": path => new CSVLoader(path),
-		".txt": path => new TextLoader(path),
 	});
 	console.log("Loading documents...");
 	// Load the documents
