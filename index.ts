@@ -37,7 +37,7 @@ function convert_xlsx_to_csv(filePath) {
 	utils.book_append_sheet(newWorkbook, newWorksheet, "csv_sheet");
 
 	writeFile(newWorkbook, fileName + ".csv");
-	console.log("File converted to csv successfully!");
+	// console.log("File converted to csv successfully!");
 }
 
 // Initialize document loaders
@@ -45,10 +45,10 @@ async function loadDocuments() {
 	const loader = new DirectoryLoader(path.join(__dirname, "documents"), {
 		".csv": path => new CSVLoader(path),
 	});
-	console.log("Loading documents...");
+	// console.log("Loading documents...");
 	// Load the documents
 	const documents = await loader.load();
-	console.log("Loaded documents");
+	// console.log("Loaded documents");
 	return documents;
 }
 
@@ -76,14 +76,14 @@ export const predict = async (
 
 	// Check if the vector store exists
 	if (fs.existsSync(VECTOR_STORE_PATH)) {
-		console.log("Loading an existing vector store...");
+		// console.log("Loading an existing vector store...");
 		vectorStore = await HNSWLib.load(
 			VECTOR_STORE_PATH,
 			new OpenAIEmbeddings()
 		);
-		console.log("Loaded an existing vector store");
+		// console.log("Loaded an existing vector store");
 	} else {
-		console.log("Creating a new vector store...");
+		// console.log("Creating a new vector store...");
 		convert_xlsx_to_csv(
 			path.join(__dirname, "documents", "components_info.xlsx")
 		);
@@ -102,7 +102,7 @@ export const predict = async (
 			new OpenAIEmbeddings()
 		);
 		await vectorStore.save(VECTOR_STORE_PATH);
-		console.log("New vector store created and saved");
+		// console.log("New vector store created and saved");
 	}
 
 	const chain = VectorDBQAChain.fromLLM(model, vectorStore);
